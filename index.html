@@ -130,15 +130,7 @@ class ReciprocityMap extends React.Component {
             <span className='reciprocityGreenText'>r</span><span>eciprocity</span>
             <span className='reciprocityLightBlueText'>.</span> <span className='reciprocityGreenText'>m</span>
             <span>ap</span><span className='reciprocityLightBlueText'>.</span>
-          </h1>
-          <p className='text-muted font-thin'>
-            Reciprocity's vision is the public recognition of Indigenous lands.
-            We've created a map that shows homes and businesses that have chosen to take a step towards decolonizing their backyards by joining Reciprocity.
-            <span className='font-weight-bold'> Click on a pin or area of the map to learn more.</span>
-          </p>
-          <p className='text-muted font-thin'>
-            We are focussing initial efforts on Southern Vancouver Island, and as Reciprocity grows, we envision Regional Indigenous-led Trusts extending across the province.
-          </p>
+        
         </Container>
         <MapContainer className={styles.mapContainer} center={this.state.position} zoom={this.state.zoom} scrollWheelZoom={this.state.scrollWheelZoom} maxZoom={14}>
           <TileLayer
@@ -165,53 +157,7 @@ class ReciprocityMap extends React.Component {
                 style={{ color: region.color, fillOpacity: 0.3 }}
               />
             })
-          }
-        </MapContainer>
-        <Container className={styles.pinsContainer}>
-          <p className='text-muted font-thin'>
-            Pins on the map have been included with permission from the person making the payment for that home or business. If you would like to see a change, please get in touch.
-          </p>
-          <h4 className='text-center marginBottom50'>Reciprocity participants: owners, renters, businesses and events</h4>
-          <Row className='marginBottom50'>
-            <Col className='text-center'>
-              <Image src='/pin-1-2-years.png' /><p className='font-thin'>1-2 year property</p>
-            </Col>
-            <Col className='text-center'>
-              <Image src='/pin-3-10-years.png' /><p className='font-thin'>3-10 year property</p>
-            </Col>
-            <Col className='text-center'>
-              <Image src='/pin-10-years.png' /><p className='font-thin'>10+ year property</p>
-            </Col>
-            <Col className='text-center'>
-              <Image src='/pin-business.png' /><p className='font-thin'>Reciprocity Business</p>
-            </Col>
-            <Col className='text-center'>
-              <Image src='/pin-renter.png' /><p className='font-thin'>Rental Property</p>
-            </Col>
-            <Col className='text-center'>
-              <Image src='/pin-pledge.png' /><p className='font-thin'>Pledges</p>
-            </Col>
-          </Row>
-          <h4 className='text-center marginBottom50 font-thin'>Current Reciprocity Trust Regions</h4>
-          <Row className='marginBottom50'>
-            {
-              this.state.regions.map((region, index) => {
-                console.log('region.key:', region.key);
-                if (region.key !== 'okanagan') {
-                  return <>
-                    <Col key={index} className='text-center'>
-                      <div className={styles.block} style={{ backgroundColor: `${region.color}` }} />
-                      <div className='font-thin'>{region.name}</div>
-                      <div className='text-muted font-thin'>{this.getRegionStatus(region.key)}</div>
-                    </Col>
-                  </>
-                }
-                return null;
-              })
-            }
-          </Row>
-        </Container>
-      </div>
+          }       
     )
   }
 }
