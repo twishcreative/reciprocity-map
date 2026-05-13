@@ -1,0 +1,218 @@
+import React from 'react';
+import { default as withRouter } from "../../components/WithRouter/withRouter";
+
+import { Container, Row, Col, Image } from 'react-bootstrap';
+import { MapContainer, TileLayer, Marker, Popup, GeoJSON } from 'react-leaflet';
+import { Icon, map } from 'leaflet';
+
+import { getMarkers, getRegions, loadRegionsGeoJSONs } from '../../utils';
+
+import styles from './ReciprocityMap.module.css';
+
+class ReciprocityMap extends React.Component {
+  constructor(props) {
+    super(props);
+
+    this.state = {
+      loading: false,
+      position: [49, -122],
+      zoom: 7,
+      scrollWheelZoom: false,
+
+      regions: [],
+      markers: [],
+    };
+  }
+
+  componentDidMount() {
+    this.fetch();
+  }
+
+  fetch = async () => {
+    this.setState({ loading: true });
+    await Promise.all([
+      this.getRegions(),
+      this.getMarkers()
+    ]);
+    this.setState({ loading: false });
+  }
+
+  getRegionStatus(key) {
+    if (key === 'southIsland') {
+      return 'established 2023';
+    }
+    return 'in progress';
+  }
+
+  getRegions = async () => {
+    try {
+      const result = await getRegions();
+      let regions = result.regions;
+
+      await loadRegionsGeoJSONs(regions, (region, feature) => {
+        if (!feature.properties) feature.properties = {};
+        feature.properties.reciprocityName = `Reciprocity ${region.name}`;
+      });
+
+      this.setState({ regions: regions });
+    } catch (error) {
+      this.setState({ regions: [] });
+    }
+  }
+
+  getMarkers = async () => {
+    try {
+      const result = await getMarkers();
+      let markers = result.markers;
+
+      const markersByAddress = new Map();
+
+      markers.forEach(marker => {
+        const address = marker.address;
+        marker.preLaunch = false;
+        const createdAt = new Date(marker.createdAt).toISOString();
+        if (createdAt < '2023-06-01') {
+          marker.preLaunch = true;
+        }
+        if (markersByAddress.has(address)) {
+          if ('pledgeOnly' in marker || marker.preLaunch) {
+            return;
+          }
+          delete markersByAddress.get(address).pledgeOnly;
+          markersByAddress.get(address).years += marker.years || 0;
+        } else {
+          markersByAddress.set(address, { ...marker });
+        }
+      });
+      const consolidatedMarkers = Array.from(markersByAddress.values());
+      consolidatedMarkers.forEach(marker => {
+        let url = '/pin-1-2-years.png';
+        if (marker?.pledgeOnly || marker.preLaunch) {
+          url = '/pin-pledge.png';
+        } else if (marker.type === 'business') {
+          marker.description = marker.businessName || 'Business';
+          url = '/pin-business.png';
+        } else if (marker.type === 'renter' || marker.description === 'Renting') {
+          marker.description = 'Renting';
+          url = '/pin-renter.png';
+        } else if (marker.years > 10) {
+          marker.description = `${marker.years} year property`;
+          url = '/pin-10-years.png';
+        } else if (marker.years > 2) {
+          marker.description = `${marker.years} year property`;
+          url = '/pin-3-10-years.png';
+        }
+
+        marker.icon = new Icon({
+          iconUrl: url,
+          iconRetinaUrl: url,
+          iconSize: [51, 71],
+          iconAnchor: [26, 61],
+          popupAnchor: [0, -51]
+        });
+      });
+      this.setState({ markers: consolidatedMarkers });
+    } catch (error) {
+      this.setState({ markers: [] });
+    }
+  }
+  onEachFeature = (feature, layer) => {
+    layer.bindPopup(`<h6>${feature.properties.reciprocityName}</h6>`, { maxWidth: 500 });
+    layer.on('mouseover', e => { layer.setStyle({ fillOpacity: 0.5 }) });
+    layer.on('mouseout', e => { layer.setStyle({ fillOpacity: 0.3 }) });
+  }
+
+  render() {
+    return (
+      <div className={styles.flexer}>
+        <Container>
+          <h1 className='text-center'>
+            <span className='reciprocityGreenText'>r</span><span>eciprocity</span>
+            <span className='reciprocityLightBlueText'>.</span> <span className='reciprocityGreenText'>m</span>
+            <span>ap</span><span className='reciprocityLightBlueText'>.</span>
+          </h1>
+          <p className='text-muted font-thin'>
+            Reciprocity's vision is the public recognition of Indigenous lands.
+            We've created a map that shows homes and businesses that have chosen to take a step towards decolonizing their backyards by joining Reciprocity.
+            <span className='font-weight-bold'> Click on a pin or area of the map to learn more.</span>
+          </p>
+          <p className='text-muted font-thin'>
+            We are focussing initial efforts on Southern Vancouver Island, and as Reciprocity grows, we envision Regional Indigenous-led Trusts extending across the province.
+          </p>
+        </Container>
+        <MapContainer className={styles.mapContainer} center={this.state.position} zoom={this.state.zoom} scrollWheelZoom={this.state.scrollWheelZoom} maxZoom={14}>
+          <TileLayer
+            attribution='&copy; <a href="http://osm.org/copyright">OpenStreetMap</a> contributors'
+            url='https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
+          />
+          {
+            this.state.markers.map((marker, index) => {
+              if (marker.lat && marker.lng) {
+                return <Marker key={index} position={[marker.lat, marker.lng]} icon={marker.icon}>
+                  <Popup className={styles.markerPopup} maxWidth={500}>
+                    <h3>{marker.description}</h3>
+                  </Popup>
+                </Marker>
+              } else {
+                return false;
+              }
+            })
+          }
+          {
+            this.state.regions.map((region, index) => {
+              return <GeoJSON key={index} data={region.json} coordsToLatLng={region.converter}
+                onEachFeature={this.onEachFeature}
+                style={{ color: region.color, fillOpacity: 0.3 }}
+              />
+            })
+          }
+        </MapContainer>
+        <Container className={styles.pinsContainer}>
+          <p className='text-muted font-thin'>
+            Pins on the map have been included with permission from the person making the payment for that home or business. If you would like to see a change, please get in touch.
+          </p>
+          <h4 className='text-center marginBottom50'>Reciprocity participants: owners, renters, businesses and events</h4>
+          <Row className='marginBottom50'>
+            <Col className='text-center'>
+              <Image src='/pin-1-2-years.png' /><p className='font-thin'>1-2 year property</p>
+            </Col>
+            <Col className='text-center'>
+              <Image src='/pin-3-10-years.png' /><p className='font-thin'>3-10 year property</p>
+            </Col>
+            <Col className='text-center'>
+              <Image src='/pin-10-years.png' /><p className='font-thin'>10+ year property</p>
+            </Col>
+            <Col className='text-center'>
+              <Image src='/pin-business.png' /><p className='font-thin'>Reciprocity Business</p>
+            </Col>
+            <Col className='text-center'>
+              <Image src='/pin-renter.png' /><p className='font-thin'>Rental Property</p>
+            </Col>
+            <Col className='text-center'>
+              <Image src='/pin-pledge.png' /><p className='font-thin'>Pledges</p>
+            </Col>
+          </Row>
+          <h4 className='text-center marginBottom50 font-thin'>Current Reciprocity Trust Regions</h4>
+          <Row className='marginBottom50'>
+            {
+              this.state.regions.map((region, index) => {
+                console.log('region.key:', region.key);
+                if (region.key !== 'okanagan') {
+                  return <>
+                    <Col key={index} className='text-center'>
+                      <div className={styles.block} style={{ backgroundColor: `${region.color}` }} />
+                      <div className='font-thin'>{region.name}</div>
+                      <div className='text-muted font-thin'>{this.getRegionStatus(region.key)}</div>
+                    </Col>
+                  </>
+                }
+                return null;
+              })
+            }
+          </Row>
+        </Container>
+      </div>
+    )
+  }
+}
+export default withRouter(ReciprocityMap)
